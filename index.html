@@ -10,7 +10,7 @@
       margin: 0;
       padding: 0;
       background-color: #f4f4f4;
-      text-transform: uppercase; /* Tudo em letras maiúsculas */
+      text-transform: uppercase;
     }
     .container {
       max-width: 600px;
@@ -60,61 +60,26 @@
       border-radius: 4px;
       position: relative;
     }
-    .delete-button, .edit-button {
-      position: absolute;
-      top: 10px;
-      padding: 5px 10px;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .delete-button {
-      right: 10px;
-      background-color: red;
-    }
-    .edit-button {
-      right: 80px;
-      background-color: blue;
-    }
     .hidden {
       display: none;
     }
-    .planner-button {
-      margin-top: 20px;
-      padding: 10px;
-      background-color: #007bff;
-      color: white;
+    .edit-button, .delete-button {
+      background-color: #ffc107;
+      color: #fff;
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      margin-right: 5px;
+      padding: 5px 10px;
     }
-    .planner-button:hover {
-      background-color: #0056b3;
+    .delete-button {
+      background-color: #dc3545;
     }
-    .planner {
-      display: none;
-      margin-top: 20px;
+    .edit-button:hover {
+      background-color: #e0a800;
     }
-    .planner-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .planner-table th, .planner-table td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
-    }
-    .back-button {
-      padding: 10px;
-      background-color: #28a745;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .back-button:hover {
-      background-color: #218838;
+    .delete-button:hover {
+      background-color: #c82333;
     }
   </style>
 </head>
@@ -156,7 +121,8 @@
       <!-- Solicitante -->
       <label for="solicitante">SOLICITANTE:</label>
       <select id="solicitante" required>
-        <!-- As opções serão preenchidas dinamicamente -->
+        <option value="Professor A">Professor A</option>
+        <option value="Professor B">Professor B</option>
       </select>
 
       <label for="nomeSolicitante">NOME DO SOLICITANTE:</label>
@@ -178,365 +144,142 @@
       <button type="submit" id="agendarButton">AGENDAR</button>
     </form>
 
-    <button class="planner-button" id="verMes">VER AGENDAMENTOS MENSAIS</button>
-
     <div class="agendamentos">
       <h2>AGENDAMENTOS CONFIRMADOS:</h2>
       <div id="listaAgendamentos"></div>
     </div>
-
-    <!-- Planner Mensal -->
-    <div class="planner hidden" id="planner">
-      <h2>PLANNER MENSAL</h2>
-      <table class="planner-table">
-        <thead>
-          <tr>
-            <th>DATA</th>
-            <th>AGENDAMENTOS</th>
-          </tr>
-        </thead>
-        <tbody id="plannerBody">
-          <!-- Agendamentos serão inseridos dinamicamente aqui -->
-        </tbody>
-      </table>
-      <button class="back-button" id="voltar">VOLTAR</button>
-    </div>
   </div>
 
-  <script>
-    const form = document.getElementById('agendamentoForm');
-    const listaAgendamentos = document.getElementById('listaAgendamentos');
-    const agendarButton = document.getElementById('agendarButton');
-    const verMesBtn = document.getElementById('verMes');
-    const planner = document.getElementById('planner');
-    const plannerBody = document.getElementById('plannerBody');
-    const voltarBtn = document.getElementById('voltar');
+  <!-- Firebase SDK via NPM -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.9.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.9.0/firebase-firestore.js";
 
-    const finalidadeSelect = document.getElementById('finalidade');
-    const solicitanteSelect = document.getElementById('solicitante');
-    const nomeSolicitanteInput = document.getElementById('nomeSolicitante');
-
-    const tccFields = document.getElementById('tccFields');
-    const manutencaoFields = document.getElementById('manutencaoFields');
-
-    const temaTcc = document.getElementById('temaTcc');
-    const bancaTcc = document.getElementById('bancaTcc');
-    const orientadorTcc = document.getElementById('orientadorTcc');
-    const motivoManutencao = document.getElementById('motivoManutencao');
-
-    let agendamentos = [];
-    let editIndex = -1;  // Para armazenar o índice do item em edição
-
-    // Lista de professores
-    const professores = ['BRUNA MARCELE', 'DANIELLE BACARELLI', 'DIANA COSTA', 'DOUGLAS CARAGELASCO', 'JOÃO FLÁVIO', 'LÍVIA BIAZZO', 'MARIANA MIRANDA', 'MARILIA FILIPONI', 'MARTA LUPPI', 'MICHELE BARROS', 'PAULA GUIMARÃES', 'PAULO GRISKA', 'PAULO ANSELMO', 'RAFAEL NEVES'];
-
-    const carregarSolicitantes = (finalidade) => {
-      solicitanteSelect.innerHTML = ''; // Limpar as opções anteriores
-
-      let options = [];
-
-      switch (finalidade) {
-        case 'AULA':
-          options = ['PROFESSOR', 'RESIDENTE'];
-          break;
-        case 'TCC':
-          options = ['ALUNO', 'PROFESSOR'];
-          break;
-        case 'PROVA':
-        case 'DISCUSSÃO DE CASO':
-          options = ['RESIDENTE', 'PROFESSOR'];
-          break;
-        case 'MANUTENÇÃO':
-          options = ['RESP. TÉCNICO', 'GERENTE'];
-          break;
-        default:
-          break;
-      }
-
-      options.forEach(option => {
-        const opt = document.createElement('option');
-        opt.value = option.toUpperCase();
-        opt.textContent = option;
-        solicitanteSelect.appendChild(opt);
-      });
-
-      // Disparar o evento de alteração do solicitante para preencher o campo de nome
-      solicitanteSelect.dispatchEvent(new Event('change'));
+    const firebaseConfig = {
+      apiKey: "AIzaSyBw3KtxT-386kduvlDLyCHWYsdc_Ny3j9Y",
+      authDomain: "agendamento-de-sala-c348d.firebaseapp.com",
+      projectId: "agendamento-de-sala-c348d",
+      storageBucket: "agendamento-de-sala-c348d.appspot.com",
+      messagingSenderId: "1051108935402",
+      appId: "1:1051108935402:web:d87c0ce75b27a6908f3993"
     };
 
-    // Exibir campos adicionais com base na finalidade selecionada
-    finalidadeSelect.addEventListener('change', function() {
-      carregarSolicitantes(this.value);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-      if (this.value === 'TCC') {
-        tccFields.classList.remove('hidden');
-        manutencaoFields.classList.add('hidden');
-      } else if (this.value === 'MANUTENÇÃO') {
-        manutencaoFields.classList.remove('hidden');
-        tccFields.classList.add('hidden');
-      } else {
-        tccFields.classList.add('hidden');
-        manutencaoFields.classList.add('hidden');
-      }
-    });
+    let editandoId = null;
 
-    // Alterar o campo de nome solicitante com base no solicitante selecionado
-    solicitanteSelect.addEventListener('change', function() {
-      const selecionado = this.value;
-
-      if (selecionado === 'PROFESSOR') {
-        // Se for professor, exibir uma lista de professores
-        nomeSolicitanteInput.innerHTML = ''; // Limpar qualquer valor no campo de texto
-
-        const professorSelect = document.createElement('select');
-        professorSelect.id = 'professorSelect';
-        professorSelect.required = true;
-
-        professores.forEach(professor => {
-          const option = document.createElement('option');
-          option.value = professor;
-          option.text = professor;
-          professorSelect.appendChild(option);
-        });
-
-        nomeSolicitanteInput.replaceWith(professorSelect);
-      } else if (selecionado === 'RESP. TÉCNICO') {
-        nomeSolicitanteInput.value = 'LEANDRO BIAZZO'; // Preencher automaticamente com Leandro Biazzo
-        nomeSolicitanteInput.disabled = true; // Desabilitar edição
-      } else if (selecionado === 'GERENTE') {
-        nomeSolicitanteInput.value = 'ELLEN BIANCA'; // Preencher automaticamente com Ellen Bianca
-        nomeSolicitanteInput.disabled = true; // Desabilitar edição
-      } else {
-        // Se não for professor, responsável técnico ou gerente, permitir digitação
-        if (document.getElementById('professorSelect')) {
-          const textInput = document.createElement('input');
-          textInput.id = 'nomeSolicitante';
-          textInput.type = 'text';
-          textInput.required = true;
-          textInput.placeholder = 'DIGITE O NOME DO SOLICITANTE';
-          document.getElementById('professorSelect').replaceWith(textInput);
+    async function salvarAgendamento(agendamento) {
+      try {
+        if (editandoId) {
+          const agendamentoRef = doc(db, "agendamentos", editandoId);
+          await updateDoc(agendamentoRef, agendamento);
+          alert('Agendamento atualizado com sucesso!');
         } else {
-          nomeSolicitanteInput.value = '';
-          nomeSolicitanteInput.disabled = false; // Habilitar edição
+          await addDoc(collection(db, 'agendamentos'), agendamento);
+          alert('Agendamento salvo com sucesso!');
         }
+        listarAgendamentos();
+        editandoId = null;
+      } catch (error) {
+        console.error('Erro ao salvar agendamento: ', error);
+        alert('Erro ao salvar agendamento. Tente novamente.');
       }
-    });
-
-    form.addEventListener('submit', function(event) {
-      event.preventDefault();
-
-      // Capturar os dados do formulário
-      const finalidade = document.getElementById('finalidade').value;
-      const solicitante = document.getElementById('solicitante').value;
-      let nomeSolicitante;
-
-      // Se for professor, capturar o nome do select
-      if (solicitante === 'PROFESSOR') {
-        nomeSolicitante = document.getElementById('professorSelect').value;
-      } else {
-        nomeSolicitante = document.getElementById('nomeSolicitante').value;
-      }
-
-      const sala = document.getElementById('sala').value;
-      const data = document.getElementById('data').value;
-      const hora = document.getElementById('hora').value;
-
-      // Campos adicionais
-      let tema = '';
-      let banca = '';
-      let orientador = '';
-      let motivo = '';
-
-      if (finalidade === 'TCC') {
-        tema = temaTcc.value;
-        banca = bancaTcc.value;
-        orientador = orientadorTcc.value;
-
-        if (!tema || !banca || !orientador) {
-          alert('POR FAVOR, PREENCHA TODOS OS CAMPOS RELACIONADOS AO TCC.');
-          return;
-        }
-      } else if (finalidade === 'MANUTENÇÃO') {
-        motivo = motivoManutencao.value;
-        if (!motivo) {
-          alert('POR FAVOR, PREENCHA O MOTIVO DA MANUTENÇÃO.');
-          return;
-        }
-      }
-
-      // Verificar se a sala já está agendada para o mesmo horário
-      const conflito = agendamentos.find(agendamento => agendamento.sala === sala && agendamento.data === data && agendamento.hora === hora);
-
-      if (conflito) {
-        alert('ESTE HORÁRIO JÁ ESTÁ AGENDADO PARA A SALA SELECIONADA. POR FAVOR, ESCOLHA OUTRO HORÁRIO.');
-        return;
-      }
-
-      // Se estiver no modo de edição, atualize o agendamento existente
-      if (editIndex >= 0) {
-        agendamentos[editIndex] = { finalidade, solicitante, nomeSolicitante, sala, data, hora, tema, banca, orientador, motivo };
-        editIndex = -1;  // Voltar ao modo de criação de novo agendamento
-        agendarButton.textContent = 'AGENDAR';  // Reiniciar o botão para "Agendar"
-      } else {
-        // Adicionar o agendamento à lista
-        agendamentos.push({ finalidade, solicitante, nomeSolicitante, sala, data, hora, tema, banca, orientador, motivo });
-      }
-
-      // Atualizar a lista de agendamentos na tela
-      atualizarListaAgendamentos();
-      alert('AGENDAMENTO REALIZADO COM SUCESSO!');
-
-      // Limpar o formulário após o envio
-      form.reset();
-      tccFields.classList.add('hidden');
-      manutencaoFields.classList.add('hidden');
-    });
-
-    // Função para formatar a data no formato dia/mês/ano
-    function formatarData(dataISO) {
-      const data = new Date(dataISO);
-      const dia = String(data.getDate()).padStart(2, '0');
-      const mes = String(data.getMonth() + 1).padStart(2, '0'); // Mês começa do 0, então adicionamos 1
-      const ano = data.getFullYear();
-      return `${dia}/${mes}/${ano}`;
     }
 
-    // Função para atualizar a lista de agendamentos
-    function atualizarListaAgendamentos() {
+    async function listarAgendamentos() {
+      const listaAgendamentos = document.getElementById('listaAgendamentos');
       listaAgendamentos.innerHTML = '';
-      agendamentos.forEach((agendamento, index) => {
+
+      const querySnapshot = await getDocs(collection(db, 'agendamentos'));
+      querySnapshot.forEach((doc) => {
+        const agendamento = doc.data();
         const div = document.createElement('div');
         div.classList.add('agendamento-item');
         div.innerHTML = `
           <strong>FINALIDADE:</strong> ${agendamento.finalidade}<br>
-          ${agendamento.finalidade === 'TCC' ? `<strong>TEMA TCC:</strong> ${agendamento.tema}<br><strong>INTEGRANTES DA BANCA:</strong> ${agendamento.banca}<br><strong>ORIENTADOR:</strong> ${agendamento.orientador}<br>` : ''}
-          ${agendamento.finalidade === 'MANUTENÇÃO' ? `<strong>MOTIVO:</strong> ${agendamento.motivo}<br>` : ''}
           <strong>SOLICITANTE:</strong> ${agendamento.solicitante} - ${agendamento.nomeSolicitante}<br>
           <strong>SALA:</strong> ${agendamento.sala}<br>
-          <strong>DATA:</strong> ${formatarData(agendamento.data)}<br>
-          <strong>HORA:</strong> ${agendamento.hora}
+          <strong>DATA:</strong> ${agendamento.data}<br>
+          <strong>HORA:</strong> ${agendamento.hora}<br>
+          <button class="edit-button" data-id="${doc.id}">EDITAR</button>
+          <button class="delete-button" data-id="${doc.id}">EXCLUIR</button>
         `;
-
-        // Botão de edição
-        const editButton = document.createElement('button');
-        editButton.classList.add('edit-button');
-        editButton.textContent = 'ALTERAR';
-        editButton.addEventListener('click', () => carregarAgendamentoParaEdicao(index));
-
-        // Botão de exclusão
-        const deleteButton = document.createElement('button');
-        deleteButton.classList.add('delete-button');
-        deleteButton.textContent = 'EXCLUIR';
-        deleteButton.addEventListener('click', () => excluirAgendamento(index, agendamento.nomeSolicitante));
-
-        div.appendChild(editButton);
-        div.appendChild(deleteButton);
         listaAgendamentos.appendChild(div);
       });
-    }
 
-    // Função para carregar os dados do agendamento no formulário para edição
-    function carregarAgendamentoParaEdicao(index) {
-      const agendamento = agendamentos[index];
-
-      document.getElementById('finalidade').value = agendamento.finalidade;
-      document.getElementById('solicitante').value = agendamento.solicitante;
-
-      if (agendamento.solicitante === 'PROFESSOR') {
-        const professorSelect = document.createElement('select');
-        professorSelect.id = 'professorSelect';
-        professorSelect.required = true;
-
-        professores.forEach(professor => {
-          const option = document.createElement('option');
-          option.value = professor;
-          option.text = professor;
-          if (professor === agendamento.nomeSolicitante) {
-            option.selected = true;
-          }
-          professorSelect.appendChild(option);
-        });
-
-        nomeSolicitanteInput.replaceWith(professorSelect);
-      } else {
-        document.getElementById('nomeSolicitante').value = agendamento.nomeSolicitante;
-      }
-
-      document.getElementById('sala').value = agendamento.sala;
-      document.getElementById('data').value = agendamento.data;
-      document.getElementById('hora').value = agendamento.hora;
-
-      // Exibir campos adicionais com base na finalidade
-      if (agendamento.finalidade === 'TCC') {
-        tccFields.classList.remove('hidden');
-        temaTcc.value = agendamento.tema;
-        bancaTcc.value = agendamento.banca;
-        orientadorTcc.value = agendamento.orientador;
-      } else if (agendamento.finalidade === 'MANUTENÇÃO') {
-        manutencaoFields.classList.remove('hidden');
-        motivoManutencao.value = agendamento.motivo;
-      } else {
-        tccFields.classList.add('hidden');
-        manutencaoFields.classList.add('hidden');
-      }
-
-      // Ajustar o botão de agendamento para "SALVAR ALTERAÇÕES"
-      agendarButton.textContent = 'SALVAR ALTERAÇÕES';
-      editIndex = index;  // Definir o índice do agendamento que está sendo editado
-    }
-
-    // Função para excluir agendamento
-    function excluirAgendamento(index, nomeSolicitante) {
-      const nomeUsuarioAtual = prompt('PARA EXCLUIR, DIGITE O SEU NOME:');
-
-      if (nomeUsuarioAtual === nomeSolicitante) {
-        agendamentos.splice(index, 1); // Remove o agendamento da lista
-        atualizarListaAgendamentos();
-        alert('AGENDAMENTO EXCLUÍDO COM SUCESSO!');
-      } else {
-        alert('VOCÊ SÓ PODE EXCLUIR SEUS PRÓPRIOS AGENDAMENTOS.');
-      }
-    }
-
-    // Função para exibir o planner mensal
-    verMesBtn.addEventListener('click', () => {
-      plannerBody.innerHTML = ''; // Limpar o planner antes de exibir
-
-      const agendamentosDoMes = agendamentos.filter(agendamento => isThisMonth(agendamento.data));
-
-      agendamentosDoMes.forEach(agendamento => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${formatarData(agendamento.data)}</td>
-          <td>
-            ${agendamento.finalidade} - ${agendamento.sala} - ${agendamento.hora}<br>
-            ${agendamento.solicitante} - ${agendamento.nomeSolicitante}
-          </td>
-        `;
-        plannerBody.appendChild(row);
+      // Adiciona eventos aos botões de editar e excluir
+      document.querySelectorAll('.edit-button').forEach(button => {
+        button.addEventListener('click', carregarAgendamentoParaEdicao);
       });
 
-      planner.classList.remove('hidden'); // Mostrar o planner
-      form.classList.add('hidden'); // Ocultar o formulário
-      listaAgendamentos.classList.add('hidden'); // Ocultar a lista de agendamentos
-      verMesBtn.classList.add('hidden'); // Ocultar o botão de ver mês
-    });
-
-    // Função para verificar se a data está no mês atual
-    function isThisMonth(agendamentoData) {
-      const now = new Date();
-      const dataAgendamento = new Date(agendamentoData);
-
-      return dataAgendamento.getMonth() === now.getMonth() && dataAgendamento.getFullYear() === now.getFullYear();
+      document.querySelectorAll('.delete-button').forEach(button => {
+        button.addEventListener('click', excluirAgendamento);
+      });
     }
 
-    // Função para voltar do planner mensal
-    voltarBtn.addEventListener('click', () => {
-      planner.classList.add('hidden'); // Ocultar o planner
-      form.classList.remove('hidden'); // Mostrar o formulário
-      listaAgendamentos.classList.remove('hidden'); // Mostrar a lista de agendamentos
-      verMesBtn.classList.remove('hidden'); // Mostrar o botão de ver mês
+    async function excluirAgendamento(event) {
+      const id = event.target.getAttribute('data-id');
+      const confirmacao = confirm("Tem certeza que deseja excluir este agendamento?");
+      if (confirmacao) {
+        try {
+          await deleteDoc(doc(db, 'agendamentos', id));
+          alert('Agendamento excluído com sucesso!');
+          listarAgendamentos();
+        } catch (error) {
+          console.error('Erro ao excluir agendamento: ', error);
+          alert('Erro ao excluir agendamento.');
+        }
+      }
+    }
+
+    function carregarAgendamentoParaEdicao(event) {
+      const id = event.target.getAttribute('data-id');
+      editandoId = id;
+
+      // Carregar dados do agendamento para o formulário
+      const div = event.target.parentElement;
+      document.getElementById('finalidade').value = div.querySelector('strong:nth-child(1)').textContent.split(': ')[1];
+      document.getElementById('solicitante').value = div.querySelector('strong:nth-child(2)').textContent.split(': ')[1].split(' - ')[0];
+      document.getElementById('nomeSolicitante').value = div.querySelector('strong:nth-child(2)').textContent.split(': ')[1].split(' - ')[1];
+      document.getElementById('sala').value = div.querySelector('strong:nth-child(3)').textContent.split(': ')[1];
+      document.getElementById('data').value = formatarDataParaInput(div.querySelector('strong:nth-child(4)').textContent.split(': ')[1]);
+      document.getElementById('hora').value = div.querySelector('strong:nth-child(5)').textContent.split(': ')[1];
+
+      document.getElementById('agendarButton').textContent = 'ATUALIZAR';
+    }
+
+    // Função para converter a data no formato dd/mm/aa para o formato aceito pelo input date (yyyy-mm-dd)
+    function formatarDataParaInput(data) {
+      const [dia, mes, ano] = data.split('/');
+      return `20${ano}-${mes}-${dia}`; // Ajusta para o padrão yyyy-mm-dd
+    }
+
+    // Função para formatar a data para dd/mm/aa
+    function formatarData(data) {
+      const [ano, mes, dia] = data.split('-');
+      return `${dia}/${mes}/${ano.slice(2)}`; // Salva como dd/mm/aa
+    }
+
+    const form = document.getElementById('agendamentoForm');
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const agendamento = {
+        finalidade: document.getElementById('finalidade').value,
+        solicitante: document.getElementById('solicitante').value,
+        nomeSolicitante: document.getElementById('nomeSolicitante').value,
+        sala: document.getElementById('sala').value,
+        data: formatarData(document.getElementById('data').value),  // Formata a data para dd/mm/aa
+        hora: document.getElementById('hora').value
+      };
+
+      salvarAgendamento(agendamento);
+      form.reset();
+      document.getElementById('agendarButton').textContent = 'AGENDAR';
     });
+
+    window.onload = listarAgendamentos;
   </script>
 
 </body>
